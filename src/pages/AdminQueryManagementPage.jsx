@@ -9,6 +9,7 @@ import {
   Search,
   Calendar,
   Download,
+  Mic,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import axios from "axios";
@@ -21,20 +22,20 @@ import QueryTypeDistribution from "../components/queries/QueryTypeDistribution";
 import QueryTrends from "../components/queries/QueryTrends";
 
 const divisions = [
-  { value: "MAHALUNGE", label: "Mahalunge", id:"67dac1a2a771ed87f82890b2"},
-  { value: "CHAKAN", label: "Chakan", id:"67dc019a6532e1c784d60840"},
-  { value: "DIGHI ALANDI", label: "Dighi-Alandi", id:"67db077dfa28812fe4f9573f"},
-  { value: "BHOSARI", label: "Bhosari", id:"67dc19f0a9ae16de2619b735"},
-  { value: "TALWADE", label: "Talwade", id:"67dac59365aca82fe28bb003"},
-  { value: "PIMPRI", label: "Pimpri", id:"67dc18f0a9ae16de2619b72c" },
-  { value: "CHINCHWAD", label: "Chinchwad", id:"67dc1a41a9ae16de2619b739"},
-  { value: "NIGDI", label: "Nigdi", id:"67dc184da9ae16de2619b728"},
-  { value: "SANGAVI", label: "Sangavi", id:"67dc198ea9ae16de2619b731"},
-  { value: "HINJEWADI", label: "Hinjewadi", id:"67dc19b7a9ae16de2619b733"},
-  { value: "WAKAD", label: "Wakad", id:"67dc189fa9ae16de2619b72a"},
-  { value: "BAVDHAN", label: "Bavdhan", id:"67dc1969a9ae16de2619b72f"},
-  { value: "DEHUROAD", label: "Dehuroad", id:"67dc1a22a9ae16de2619b737"},
-  { value: "TALEGAON", label: "Talegaon", id:"67dac3e9bb20f51c531c1509"},
+  { value: "MAHALUNGE", label: "Mahalunge", id: "67dac1a2a771ed87f82890b2" },
+  { value: "CHAKAN", label: "Chakan", id: "67dc019a6532e1c784d60840" },
+  { value: "DIGHI ALANDI", label: "Dighi-Alandi", id: "67db077dfa28812fe4f9573f" },
+  { value: "BHOSARI", label: "Bhosari", id: "67dc19f0a9ae16de2619b735" },
+  { value: "TALWADE", label: "Talwade", id: "67dac59365aca82fe28bb003" },
+  { value: "PIMPRI", label: "Pimpri", id: "67dc18f0a9ae16de2619b72c" },
+  { value: "CHINCHWAD", label: "Chinchwad", id: "67dc1a41a9ae16de2619b739" },
+  { value: "NIGDI", label: "Nigdi", id: "67dc184da9ae16de2619b728" },
+  { value: "SANGAVI", label: "Sangavi", id: "67dc198ea9ae16de2619b731" },
+  { value: "HINJEWADI", label: "Hinjewadi", id: "67dc19b7a9ae16de2619b733" },
+  { value: "WAKAD", label: "Wakad", id: "67dc189fa9ae16de2619b72a" },
+  { value: "BAVDHAN", label: "Bavdhan", id: "67dc1969a9ae16de2619b72f" },
+  { value: "DEHUROAD", label: "Dehuroad", id: "67dc1a22a9ae16de2619b737" },
+  { value: "TALEGAON", label: "Talegaon", id: "67dac3e9bb20f51c531c1509" },
 ];
 
 const AdminQueryManagementPage = () => {
@@ -97,6 +98,16 @@ const AdminQueryManagementPage = () => {
   const [detailsData, setDetailsData] = useState(null);
   const [exportLoading, setExportLoading] = useState(false);
 
+  // Resolve modal states
+  const [resolveModalOpen, setResolveModalOpen] = useState(false);
+  const [selectedQueryForResolve, setSelectedQueryForResolve] = useState(null);
+  const [message, setMessage] = useState("");
+  const [image, setImage] = useState(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false); // For voice recognition
+
   useEffect(() => {
     fetchQueryStats();
     if (!timelineActive) {
@@ -116,7 +127,6 @@ const AdminQueryManagementPage = () => {
       );
       if (response.data.success) {
         setQueryStats(response.data.stats);
-        // Initially set filtered stats to be the same as all stats
         if (
           !searchTerm &&
           !selectedType &&
@@ -132,7 +142,6 @@ const AdminQueryManagementPage = () => {
   };
 
   const calculateFilteredStats = () => {
-    // Calculate statistics based on the current filtered queries
     if (!queries.length) return;
 
     const byStatus = {
@@ -152,22 +161,18 @@ const AdminQueryManagementPage = () => {
       generalReport: 0,
     };
 
-    // Count occurrences of each status and type
     queries.forEach((query) => {
-      // Count by status
       if (query.status === "Pending") byStatus.pending++;
       else if (query.status === "In Progress") byStatus.inProgress++;
       else if (query.status === "Resolved") byStatus.resolved++;
       else if (query.status === "Rejected") byStatus.rejected++;
 
-      // Count by type
       const typeKey =
         query.query_type.replace(/\s+/g, "").charAt(0).toLowerCase() +
         query.query_type.replace(/\s+/g, "").slice(1);
       if (byType.hasOwnProperty(typeKey)) {
         byType[typeKey]++;
       } else {
-        // Handle query types that don't match our predefined keys
         if (query.query_type === "Traffic Violation") byType.trafficViolation++;
         else if (query.query_type === "Traffic Congestion")
           byType.trafficCongestion++;
@@ -240,11 +245,9 @@ const AdminQueryManagementPage = () => {
         status: newStatus,
       });
 
-      // Refresh queries and stats
       fetchQueries();
       fetchQueryStats();
 
-      // If the details modal is open for this query, refresh details too
       if (viewDetailsId === id) {
         fetchQueryDetails(id);
       }
@@ -263,7 +266,6 @@ const AdminQueryManagementPage = () => {
     setEmailSending(true);
 
     try {
-      // Make sure we have the correct ID format
       const queryId = selectedQueryForEmail._id || selectedQueryForEmail.id;
 
       console.log(
@@ -293,13 +295,11 @@ const AdminQueryManagementPage = () => {
       let errorMessage = "Failed to send email. Please try again.";
 
       if (error.response) {
-        // Server responded with error
         errorMessage = `Error: ${
           error.response.data.message || error.response.statusText
         }`;
         console.log("Server error details:", error.response.data);
       } else if (error.request) {
-        // Request made but no response
         errorMessage = "Server did not respond. Check your connection.";
       }
 
@@ -316,8 +316,6 @@ const AdminQueryManagementPage = () => {
     );
   };
 
-  // Update only the applyTimelineFilter function:
-
   const applyTimelineFilter = async () => {
     if (!startDate || !endDate) {
       alert("Please select both start and end dates");
@@ -330,16 +328,14 @@ const AdminQueryManagementPage = () => {
     try {
       console.log("Date strings from inputs:", startDate, endDate);
 
-      // Format dates with timezone consideration
-      const formattedStartDate = startDate; // Use as is from date input
-      const formattedEndDate = endDate; // Use as is from date input
+      const formattedStartDate = startDate;
+      const formattedEndDate = endDate;
       
       const divisionId = divisions.find((d) => d.value === selectedDivision)?.id || "";
 
       console.log(
         `Sending timeline request with dates: ${formattedStartDate}, ${formattedEndDate}, division ID: ${divisionId}`
       );
-
 
       const response = await axios.get(
         `http://localhost:3000/api/queries/time-filter?start=${formattedStartDate}&end=${formattedEndDate}&division=${divisionId}`
@@ -348,7 +344,7 @@ const AdminQueryManagementPage = () => {
       if (response.data.success) {
         console.log(`Received ${response.data.count} queries for time range`);
         setQueries(response.data.data);
-        setTotalPages(Math.ceil(response.data.count / 20)); // Assuming 20 per page
+        setTotalPages(Math.ceil(response.data.count / 20));
         setCurrentPage(1);
       }
     } catch (error) {
@@ -366,18 +362,18 @@ const AdminQueryManagementPage = () => {
     setStartDate("");
     setEndDate("");
     setTimelineActive(false);
-    fetchQueries(); // Go back to regular query fetching
+    fetchQueries();
   };
 
   const sendEmail = (query) => {
-    console.log("Query being sent:", query); // Add this line
+    console.log("Query being sent:", query);
     setSelectedQueryForEmail(query);
     setEmailModalOpen(true);
   };
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1); // Reset to first page on new search
+    setCurrentPage(1);
   };
 
   const handleStatusFilter = (e) => {
@@ -420,22 +416,15 @@ const AdminQueryManagementPage = () => {
     setDetailsData(null);
   };
 
-  // Function to download current data as Excel
   const downloadAsExcel = async () => {
     setExportLoading(true);
     try {
-      // Determine what data to download (current page only vs all filtered data)
-      // For better UX, we'll download all data that matches the current filters
       let dataToDownload = [];
 
-      // If there are filters active or we're in timeline mode, download what we have
       if (searchTerm || selectedType || selectedStatus || timelineActive) {
-        // For small datasets, we can just use what's already loaded
         if (queries.length < 100) {
           dataToDownload = queries;
         } else {
-          // For larger datasets, make a dedicated API call to get all matching data (not just current page)
-          // We'll construct a URL similar to fetchQueries but without pagination limits
           let url = `http://localhost:3000/api/queries?limit=1000`;
 
           if (searchTerm) {
@@ -451,7 +440,6 @@ const AdminQueryManagementPage = () => {
           }
 
           if (timelineActive && startDate && endDate) {
-            // Use timeline endpoint instead
             url = `http://localhost:3000/api/queries/timeline?start=${startDate}T00:00:00.000Z&end=${endDate}T23:59:59.999Z&limit=1000`;
           }
 
@@ -461,8 +449,6 @@ const AdminQueryManagementPage = () => {
           }
         }
       } else {
-        // If no filters, we might want all data, but that could be a lot
-        // Let's limit to 1000 most recent entries to avoid browser issues
         const response = await axios.get(
           `http://localhost:3000/api/queries?limit=1000`
         );
@@ -471,7 +457,6 @@ const AdminQueryManagementPage = () => {
         }
       }
 
-      // Transform the data for Excel format
       const excelData = dataToDownload.map((q) => ({
         ID: q._id,
         Type: q.query_type,
@@ -487,25 +472,19 @@ const AdminQueryManagementPage = () => {
         "Resolved At": q.resolved_at ? formatDate(q.resolved_at) : "",
       }));
 
-      // Create worksheet
       const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-      // Create workbook
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Queries");
 
-      // Generate filename with current date
       const now = new Date();
       const dateStr = now.toISOString().split("T")[0];
       let fileName = `traffic-buddy-queries-${dateStr}.xlsx`;
 
-      // Add filter info to filename
       if (selectedType) fileName = `${selectedType.toLowerCase()}-${fileName}`;
       if (selectedStatus)
         fileName = `${selectedStatus.toLowerCase()}-${fileName}`;
       if (timelineActive) fileName = `timeline-${fileName}`;
 
-      // Write and download
       XLSX.writeFile(workbook, fileName);
     } catch (error) {
       console.error("Error exporting data:", error);
@@ -515,13 +494,153 @@ const AdminQueryManagementPage = () => {
     }
   };
 
+  // New Functions for Resolve Modal
+  const openResolveModal = (query) => {
+    setSelectedQueryForResolve(query);
+    setResolveModalOpen(true);
+    setMessage("");
+    setImage(null);
+    setError("");
+    setSuccess("");
+    setIsListening(false); // Reset listening state
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    setImage(file);
+  };
+
+  // Voice-to-Text Functionality
+  const startListening = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US"; // Set language to English (adjust as needed)
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      console.log("Voice recognition started...");
+    };
+
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+      let finalTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + " ";
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      setMessage((prev) => prev + finalTranscript);
+      // Optionally display interim results in real-time:
+      // setMessage((prev) => prev + finalTranscript + interimTranscript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      setError(`Speech recognition error: ${event.error}`);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      console.log("Voice recognition ended.");
+    };
+
+    recognition.start();
+
+    // Store recognition instance to stop it later
+    window.recognition = recognition;
+  };
+
+  const stopListening = () => {
+    if (window.recognition) {
+      window.recognition.stop();
+      setIsListening(false);
+    }
+  };
+
+  const handleResolveSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (message.trim() === "") {
+      setError("Please provide resolution notes");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("status", "Resolved");
+      formData.append("resolution_note", message);
+      if (image) formData.append("image", image);
+
+      console.log("Submitting to:", `http://localhost:3000/api/reports/${selectedQueryForResolve._id}/resolve`);
+      console.log("FormData contents:");
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+
+      const response = await fetch(`http://localhost:3000/api/reports/${selectedQueryForResolve._id}/resolve`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
+
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (jsonError) {
+        throw new Error(
+          `Server response is not valid JSON: ${responseText.substring(0, 100)}...`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(responseData.message || `HTTP error! Status: ${response.status}`);
+      }
+
+      if (responseData.success) {
+        setSuccess("Report updated successfully!");
+        setMessage("");
+        setImage(null);
+        setResolveModalOpen(false);
+        fetchQueries();
+        if (viewDetailsId === selectedQueryForResolve._id) {
+          fetchQueryDetails(selectedQueryForResolve._id);
+        }
+      } else {
+        throw new Error(responseData.message || "Failed to update report");
+      }
+    } catch (error) {
+      console.error("Error in handleResolveSubmit:", error);
+      setError(error.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-auto relative z-10">
       <Header title="Query Management" />
 
       <main className="max-w-7xl mx-auto py-6 px-4 lg:px-8">
-                {/* QUERY CHARTS - Now using filteredStats instead of queryStats */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
           <QueryStatusChart stats={filteredStats.byStatus} />
           <QueryTypeDistribution stats={filteredStats.byType} />
           <QueryTrends
@@ -530,42 +649,39 @@ const AdminQueryManagementPage = () => {
             startDate={startDate}
             endDate={endDate}
           />
-        {/* STATS */}
-        <motion.div
-          className="flex flex-col gap-4 mb-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <StatCard
-            name="Total Queries"
-            icon={FileSearch}
-            value={filteredStats.total.toLocaleString()}
-            color="#6366F1"
-          />
-          <StatCard
-            name="Pending Queries"
-            icon={Clock}
-            value={filteredStats.byStatus?.pending || 0}
-            color="#F59E0B"
-          />
-          <StatCard
-            name="In Progress"
-            icon={AlertTriangle}
-            value={filteredStats.byStatus?.inProgress || 0}
-            color="#3B82F6"
-          />
-          <StatCard
-            name="Resolved"
-            icon={Check}
-            value={filteredStats.byStatus?.resolved || 0}
-            color="#10B981"
-          />
-        </motion.div>
-
+          <motion.div
+            className="flex flex-col gap-4 mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <StatCard
+              name="Total Queries"
+              icon={FileSearch}
+              value={filteredStats.total.toLocaleString()}
+              color="#6366F1"
+            />
+            <StatCard
+              name="Pending Queries"
+              icon={Clock}
+              value={filteredStats.byStatus?.pending || 0}
+              color="#F59E0B"
+            />
+            <StatCard
+              name="In Progress"
+              icon={AlertTriangle}
+              value={filteredStats.byStatus?.inProgress || 0}
+              color="#3B82F6"
+            />
+            <StatCard
+              name="Resolved"
+              icon={Check}
+              value={filteredStats.byStatus?.resolved || 0}
+              color="#10B981"
+            />
+          </motion.div>
         </div>
 
-        {/* FILTERS */}
         <motion.div
           className="bg-bgSecondary bg-opacity-50 backdrop-blur-md shadow-lg shadow-bgPrimary rounded-xl p-6 border border-borderPrimary mb-8"
           initial={{ opacity: 0, y: 20 }}
@@ -675,7 +791,6 @@ const AdminQueryManagementPage = () => {
                   </option>
                 </select>
 
-                {/* Download Button */}
                 <button
                   onClick={downloadAsExcel}
                   disabled={exportLoading}
@@ -696,7 +811,6 @@ const AdminQueryManagementPage = () => {
               </div>
             </div>
 
-            {/* Add this inside the filter section div */}
             <div className="flex text-tBase items-center gap-3 w-full md:w-auto mt-3 md:mt-0">
               <label className="text-tBase">Select Division:</label>
               <select
@@ -831,7 +945,6 @@ const AdminQueryManagementPage = () => {
           </div>
         </motion.div>
 
-        {/* QUERY TABLE */}
         <motion.div
           className="bg-bgSecondary bg-opacity-50 backdrop-blur-md shadow-lg shadow-bgPrimary rounded-xl p-6 border border-borderPrimary mb-8 overflow-x-auto"
           initial={{ opacity: 0, y: 20 }}
@@ -948,7 +1061,6 @@ const AdminQueryManagementPage = () => {
                 </tbody>
               </table>
 
-              {/* Pagination */}
               <div className="flex justify-between items-center mt-6">
                 <div className="text-sm text-gray-400">
                   Showing page {currentPage} of {totalPages}
@@ -984,7 +1096,6 @@ const AdminQueryManagementPage = () => {
           )}
         </motion.div>
 
-        {/* Query Details Modal */}
         {viewDetailsId && detailsData && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <motion.div
@@ -1105,13 +1216,10 @@ const AdminQueryManagementPage = () => {
                   </div>
                 )}
 
-                {/* Action Buttons */}
                 <div className="flex flex-wrap gap-3 mt-6">
                   <button
                     className="bg-green-600 hover:bg-green-700 text-tBase px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={() =>
-                      updateQueryStatus(detailsData._id, "Resolved")
-                    }
+                    onClick={() => openResolveModal(detailsData)}
                     disabled={detailsData.status === "Resolved"}
                   >
                     Mark as Resolved
@@ -1129,9 +1237,7 @@ const AdminQueryManagementPage = () => {
 
                   <button
                     className="bg-yellow-600 hover:bg-yellow-700 text-tBase px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={() =>
-                      updateQueryStatus(detailsData._id, "Pending")
-                    }
+                    onClick={() => updateQueryStatus(detailsData._id, "Pending")}
                     disabled={detailsData.status === "Pending"}
                   >
                     Mark as Pending
@@ -1148,7 +1254,7 @@ const AdminQueryManagementPage = () => {
             </motion.div>
           </div>
         )}
-        {/* Email Department Modal */}
+
         {emailModalOpen && selectedQueryForEmail && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <motion.div
@@ -1227,6 +1333,188 @@ const AdminQueryManagementPage = () => {
                     )}
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Resolve Modal */}
+        {resolveModalOpen && selectedQueryForResolve && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              className="bg-bgSecondary rounded-xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-xl font-semibold text-tBase">Resolve Query</h2>
+                <button
+                  className="text-gray-400 hover:text-tBase"
+                  onClick={() => {
+                    stopListening(); // Stop listening when closing the modal
+                    setResolveModalOpen(false);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-medium text-tBase">Submit Resolution</h3>
+                <p className="text-sm text-gray-400">Provide details to mark this query as resolved</p>
+              </div>
+
+              <form className="space-y-6" onSubmit={handleResolveSubmit}>
+                {error && (
+                  <div className="bg-red-500 bg-opacity-20 border-l-4 border-red-500 p-4 rounded-md">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg
+                          className="h-5 w-5 text-red-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-red-200">{error}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {success && (
+                  <div className="bg-green-500 bg-opacity-20 border-l-4 border-green-500 p-4 rounded-md">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg
+                          className="h-5 w-5 text-green-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-green-200">{success}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-md -space-y-px">
+                  <div className="mb-5">
+                    <label
+                      htmlFor="message"
+                      className="block text-sm font-medium text-gray-400 mb-1"
+                    >
+                      Resolution Notes
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        id="message"
+                        name="message"
+                        required
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        className="appearance-none relative block w-full px-3 py-3 border border-gray-700 bg-bgSecondary text-tBase placeholder-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-secondary sm:text-sm"
+                        placeholder="Enter resolution details or use voice input"
+                        disabled={isLoading}
+                        rows="4"
+                      />
+                      <button
+                        type="button"
+                        onClick={isListening ? stopListening : startListening}
+                        disabled={isLoading}
+                        className={`absolute right-2 top-2 p-2 rounded-full ${
+                          isListening
+                            ? "bg-red-600 hover:bg-red-700"
+                            : "bg-blue-600 hover:bg-blue-700"
+                        } text-tBase focus:outline-none focus:ring-2 focus:ring-secondary`}
+                      >
+                        <Mic size={20} />
+                      </button>
+                    </div>
+                    {isListening && (
+                      <p className="text-sm text-blue-400 mt-1">Listening...</p>
+                    )}
+                  </div>
+                  <div className="mb-5">
+                    <label
+                      htmlFor="image"
+                      className="block text-sm font-medium text-gray-400 mb-1"
+                    >
+                      Resolution Image (Optional)
+                    </label>
+                    <input
+                      id="image"
+                      name="image"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="appearance-none relative block w-full px-3 py-3 border border-gray-700 bg-bgSecondary text-tBase placeholder-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-secondary sm:text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-tBase hover:file:bg-blue-700"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-tBase ${
+                      isLoading
+                        ? "bg-blue-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary"
+                    } transition-colors duration-150`}
+                  >
+                    {isLoading ? (
+                      <>
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-tBase"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Submitting...
+                      </>
+                    ) : (
+                      "Submit Resolution"
+                    )}
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-400">
+                  Traffic Buddy Administration Portal © {new Date().getFullYear()}
+                </p>
               </div>
             </motion.div>
           </div>

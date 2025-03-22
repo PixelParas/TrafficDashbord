@@ -53,7 +53,7 @@ const LoginPage = ({ setter }) => {
                 // Navigate to dashboard
                 console.log("Redirection");
                 //navigate('/overview', { replace: true });
-                window.location.href = "/overview";
+                window.location.href = "/adminoverview";
                 
             } else {    
                 throw new Error(response.message || 'Login failed');
